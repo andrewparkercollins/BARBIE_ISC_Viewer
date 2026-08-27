@@ -67,15 +67,7 @@
         const nv = new Niivue();
 
         await nv.attachTo("gl");
-
-        await nv.loadVolumes([
-          {
-            url: "./Iguana.nii",
-            name: "Iguana",
-            colormap: "gray",
-            opacity: 1
-          }
-        ]);
+        
       } catch (error) {
         document.getElementById("error").textContent =
           "Viewer error: " + error.message;
