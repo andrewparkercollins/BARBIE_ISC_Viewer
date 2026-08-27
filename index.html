@@ -1,21 +1,19 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-
+  <meta charset="utf-8">
   <meta
     name="viewport"
-    content="width=device-width, initial-scale=1.0"
+    content="width=device-width, initial-scale=1"
   >
 
-  <title>Iguana MRI Viewer</title>
+  <title>Interactive Iguana MRI</title>
 
   <style>
     html, body {
       width: 100%;
       height: 100%;
       margin: 0;
-      overflow: hidden;
       background: #111;
       color: white;
       font-family: Arial, sans-serif;
@@ -24,7 +22,7 @@
     header {
       box-sizing: border-box;
       height: 75px;
-      padding: 10px 16px;
+      padding: 10px 15px;
       background: #222;
     }
 
@@ -35,7 +33,6 @@
 
     p {
       margin: 0;
-      color: #ddd;
       font-size: 14px;
     }
 
@@ -43,6 +40,11 @@
       display: block;
       width: 100%;
       height: calc(100% - 75px);
+    }
+
+    #error {
+      color: #ff8080;
+      padding: 10px;
     }
   </style>
 </head>
@@ -54,28 +56,35 @@
   </header>
 
   <canvas id="gl"></canvas>
+  <div id="error"></div>
 
   <script type="module">
     import { Niivue }
-      from "https://unpkg.com/@niivue/niivue@0.63.3/dist/index.js";
+      from "https://unpkg.com/@niivue/niivue@0.57.0/dist/index.js";
 
-    const nv = new Niivue({
-      backColor: [0.05, 0.05, 0.05, 1],
-      show3Dcrosshair: true
-    });
+    async function startViewer() {
+      try {
+        const nv = new Niivue();
 
-    nv.attachTo("gl");
+        await nv.attachTo("gl");
 
-    await nv.loadVolumes([
-      {
-        url: "./Iguana.nii",
-        name: "Iguana",
-        colormap: "gray",
-        opacity: 1
+        await nv.loadVolumes([
+          {
+            url: "./Iguana.nii",
+            name: "Iguana",
+            colormap: "gray",
+            opacity: 1
+          }
+        ]);
+      } catch (error) {
+        document.getElementById("error").textContent =
+          "Viewer error: " + error.message;
+
+        console.error(error);
       }
-    ]);
+    }
 
-    nv.setSliceType(nv.sliceTypeMultiplanar);
+    startViewer();
   </script>
 </body>
 </html>
