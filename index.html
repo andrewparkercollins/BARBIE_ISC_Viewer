@@ -1,19 +1,22 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
+  <meta charset="UTF-8">
+
   <meta
     name="viewport"
-    content="width=device-width, initial-scale=1"
+    content="width=device-width, initial-scale=1.0"
   >
 
   <title>Interactive Iguana MRI</title>
 
   <style>
-    html, body {
+    html,
+    body {
       width: 100%;
       height: 100%;
       margin: 0;
+      overflow: hidden;
       background: #111;
       color: white;
       font-family: Arial, sans-serif;
@@ -22,7 +25,7 @@
     header {
       box-sizing: border-box;
       height: 75px;
-      padding: 10px 15px;
+      padding: 10px 16px;
       background: #222;
     }
 
@@ -33,18 +36,33 @@
 
     p {
       margin: 0;
+      color: #ddd;
       font-size: 14px;
+    }
+
+    #viewer-container {
+      position: relative;
+      width: 100%;
+      height: calc(100% - 75px);
     }
 
     #gl {
       display: block;
       width: 100%;
-      height: calc(100% - 75px);
+      height: 100%;
     }
 
     #error {
-      color: #ff8080;
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      right: 10px;
+      z-index: 10;
       padding: 10px;
+      color: white;
+      background: rgba(160, 0, 0, 0.9);
+      border-radius: 5px;
+      display: none;
     }
   </style>
 </head>
@@ -52,27 +70,45 @@
 <body>
   <header>
     <h1>Interactive Iguana MRI</h1>
-    <p>Drag, scroll, and tap the image to explore the volume.</p>
+
+    <p>
+      Click or tap to reposition the crosshair. Scroll to move
+      through the image.
+    </p>
   </header>
 
-  <canvas id="gl"></canvas>
-  <div id="error"></div>
+  <div id="viewer-container">
+    <canvas id="gl"></canvas>
+    <div id="error"></div>
+  </div>
 
   <script type="module">
     import { Niivue }
-      from "https://unpkg.com/@niivue/niivue@0.57.0/dist/index.js";
+      from "https://unpkg.com/@niivue/niivue@0.69.0/dist/index.js";
 
     async function startViewer() {
+      const errorBox = document.getElementById("error");
+
       try {
-        const nv = new Niivue();
+        const nv = new Niivue({
+          isResizeCanvas: true,
+          backColor: [0.05, 0.05, 0.05, 1]
+        });
 
         await nv.attachTo("gl");
-        
-      } catch (error) {
-        document.getElementById("error").textContent =
-          "Viewer error: " + error.message;
 
+        await nv.loadVolumes([
+          {
+            url: "./Iguana.nii.gz"
+          }
+        ]);
+      } catch (error) {
         console.error(error);
+
+        errorBox.style.display = "block";
+        errorBox.textContent =
+          "Viewer error: " +
+          (error?.message || String(error));
       }
     }
 
