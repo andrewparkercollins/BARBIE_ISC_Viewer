@@ -90,26 +90,28 @@
 
       align-items: center;
 
-      gap: 6px;
+      gap: 10px;
 
       width: 100%;
     }
 
 
-    #controls label {
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+
+    .control-group label {
       flex: 0 0 auto;
 
       font-size: 14px;
     }
 
 
-    #modelSelect {
+    select {
       box-sizing: border-box;
-
-      flex:
-        0
-        1
-        360px;
 
       min-width: 0;
       max-width: 100%;
@@ -119,6 +121,22 @@
         8px;
 
       font-size: 14px;
+    }
+
+
+    #modelSelect {
+      flex:
+        0
+        1
+        360px;
+    }
+
+
+    #viewSelect {
+      flex:
+        0
+        0
+        110px;
     }
 
 
@@ -197,6 +215,16 @@
         display: grid;
 
         grid-template-columns:
+          1fr;
+
+        gap: 7px;
+      }
+
+
+      .control-group {
+        display: grid;
+
+        grid-template-columns:
           auto
           minmax(0, 1fr);
 
@@ -206,34 +234,22 @@
       }
 
 
-      #controls label {
+      .control-group label {
         font-size: 13px;
       }
 
 
-      #modelSelect {
+      #modelSelect,
+      #viewSelect {
         width: 100%;
         max-width: 100%;
+        flex: none;
 
         font-size: 13px;
 
         padding:
           5px
           6px;
-      }
-
-    }
-
-
-    @media (max-width: 370px) {
-
-      #controls {
-        grid-template-columns: 1fr;
-      }
-
-
-      #modelSelect {
-        width: 100%;
       }
 
     }
@@ -260,26 +276,52 @@
 
     <div id="controls">
 
-      <label for="modelSelect">
-        Model:
-      </label>
+      <div class="control-group">
+
+        <label for="modelSelect">
+          Model:
+        </label>
 
 
-      <select id="modelSelect">
+        <select id="modelSelect">
 
-        <option value="Intercept">
-          Intercept — q &lt; .05
-        </option>
+          <option value="Intercept">
+            Intercept — q &lt; .05
+          </option>
 
-        <option value="NN">
-          Plasticity Difference (NN) — q &lt; .05, k ≥ 60
-        </option>
+          <option value="NN">
+            Plasticity Difference (NN) — q &lt; .05, k ≥ 60
+          </option>
 
-        <option value="AnnaK">
-          Mean Plasticity (AnnaK) — q &lt; .05, k ≥ 60
-        </option>
+          <option value="AnnaK">
+            Mean Plasticity (AnnaK) — q &lt; .05, k ≥ 60
+          </option>
 
-      </select>
+        </select>
+
+      </div>
+
+
+      <div class="control-group">
+
+        <label for="viewSelect">
+          View:
+        </label>
+
+
+        <select id="viewSelect">
+
+          <option value="slices">
+            Slices
+          </option>
+
+          <option value="3d">
+            3D
+          </option>
+
+        </select>
+
+      </div>
 
     </div>
 
@@ -333,6 +375,12 @@
       );
 
 
+    const viewSelect =
+      document.getElementById(
+        "viewSelect"
+      );
+
+
     const errorBox =
       document.getElementById(
         "error"
@@ -379,7 +427,9 @@
           1
         ],
 
-        isColorbar: true
+        isColorbar: true,
+
+        show3Dcrosshair: false
 
       });
 
@@ -511,6 +561,38 @@
 
 
     // =========================================================
+    // VIEW MODE
+    // =========================================================
+
+    function applyViewMode(
+      mode
+    ) {
+
+      if (
+        mode === "3d"
+      ) {
+
+        nv.setSliceType(
+          nv.sliceTypeRender
+        );
+
+      }
+
+      else {
+
+        nv.setSliceType(
+          nv.sliceTypeMultiplanar
+        );
+
+      }
+
+
+      nv.drawScene();
+
+    }
+
+
+    // =========================================================
     // LOAD MODEL WITHOUT RELOADING PAGE
     // =========================================================
 
@@ -526,7 +608,6 @@
 
 
         // Save current crosshair location.
-        // NiiVue stores this as normalized scene coordinates.
 
         let savedCrosshair =
           null;
@@ -795,8 +876,17 @@
         }
 
 
+        // Update model description.
+
         description.textContent =
           descriptions[modelName];
+
+
+        // Restore whichever view the user was using.
+
+        applyViewMode(
+          viewSelect.value
+        );
 
 
         nv.updateGLVolume();
@@ -832,9 +922,7 @@
 
 
     // =========================================================
-    // DROPDOWN
-    //
-    // NO PAGE REFRESH.
+    // MODEL DROPDOWN
     // =========================================================
 
     modelSelect.addEventListener(
@@ -854,9 +942,28 @@
 
 
     // =========================================================
-    // START
+    // VIEW DROPDOWN
     //
-    // Initial load does not need to preserve a crosshair.
+    // No data reload.
+    // =========================================================
+
+    viewSelect.addEventListener(
+
+      "change",
+
+      function () {
+
+        applyViewMode(
+          this.value
+        );
+
+      }
+
+    );
+
+
+    // =========================================================
+    // START
     // =========================================================
 
     async function startViewer() {
@@ -868,6 +975,10 @@
 
       modelSelect.value =
         "Intercept";
+
+
+      viewSelect.value =
+        "slices";
 
 
       await loadModel(
