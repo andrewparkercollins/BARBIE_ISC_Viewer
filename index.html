@@ -8,7 +8,7 @@
     content="width=device-width, initial-scale=1.0"
   >
 
-  <title>BARBIE ISC Results</title>
+  <title>Interactive BARBIE ISC Results</title>
 
   <style>
     html,
@@ -80,6 +80,7 @@
 <body>
 
   <header>
+
     <h1>Interactive BARBIE ISC Results</h1>
 
     <p>
@@ -89,32 +90,57 @@
 
     <label for="modelSelect">
       Model:
+
       <select id="modelSelect">
         <option value="Intercept">Intercept</option>
         <option value="NN">Plasticity Difference (NN)</option>
         <option value="AnnaK">Mean Plasticity (AnnaK)</option>
       </select>
     </label>
+
   </header>
 
+
   <div id="viewer-container">
+
     <canvas id="gl"></canvas>
+
     <div id="error"></div>
+
   </div>
+
 
   <script type="module">
 
     import { Niivue }
       from "https://unpkg.com/@niivue/niivue@0.69.0/dist/index.js";
 
-    const modelFiles = {
-      Intercept: "./Intercept_q05_k60.nii.gz",
-      NN: "./NN_q05_k60.nii.gz",
-      AnnaK: "./AnnaK_q05_k60.nii.gz"
-    };
+
+    // ---------------------------------------------------------
+    // FILES
+    // ---------------------------------------------------------
 
     const underlayFile =
       "./MNI152_2009_template.nii.gz";
+
+
+    const modelFiles = {
+
+      Intercept:
+        "./Intercept_q05_k60.nii.gz",
+
+      NN:
+        "./NN_q05_k60.nii.gz",
+
+      AnnaK:
+        "./AnnaK_q05_k60.nii.gz"
+
+    };
+
+
+    // ---------------------------------------------------------
+    // PAGE ELEMENTS
+    // ---------------------------------------------------------
 
     const errorBox =
       document.getElementById("error");
@@ -122,11 +148,30 @@
     const modelSelect =
       document.getElementById("modelSelect");
 
+
+    // ---------------------------------------------------------
+    // CREATE NIIVUE VIEWER
+    // ---------------------------------------------------------
+
     const nv = new Niivue({
+
       isResizeCanvas: true,
-      backColor: [0.05, 0.05, 0.05, 1],
+
+      backColor: [
+        0.05,
+        0.05,
+        0.05,
+        1
+      ],
+
       isColorbar: true
+
     });
+
+
+    // ---------------------------------------------------------
+    // LOAD A MODEL
+    // ---------------------------------------------------------
 
     async function loadModel(modelName) {
 
@@ -134,13 +179,20 @@
 
         errorBox.style.display = "none";
 
+
+        // Load:
+        //   volume 0 = MNI anatomical underlay
+        //   volume 1 = thresholded statistical map
+
         await nv.loadVolumes([
+
           {
             url: underlayFile,
             colormap: "gray",
             opacity: 1,
             colorbarVisible: false
           },
+
           {
             url: modelFiles[modelName],
 
@@ -150,34 +202,187 @@
             // Negative effects
             colormapNegative: "winter",
 
-            opacity: 0.9,
+            useNegativeCmap: true,
 
-            // Critical: zero-valued voxels in the thresholded map
-            // should be transparent instead of filling the image.
-            ignoreZeroVoxels: true,
+            opacity: 0.9,
 
             colorbarVisible: true
           }
+
         ]);
 
-        // Also explicitly hide the anatomical colorbar.
-        if (nv.volumes.length > 0) {
-          nv.volumes[0].colorbarVisible = false;
+
+        // -----------------------------------------------------
+        // GET STATISTICAL OVERLAY
+        // -----------------------------------------------------
+
+        const overlay = nv.volumes[1];
+
+
+        // -----------------------------------------------------
+        // FIND NON-ZERO POSITIVE AND NEGATIVE RANGES
+        //
+        // The thresholded images contain:
+        //
+        //     significant values = actual coefficient
+        //     non-significant voxels = 0
+        //
+        // We therefore calculate the display ranges while
+        // completely ignoring zero.
+        // -----------------------------------------------------
+
+        let smallestPositive = Infinity;
+        let largestPositive  = -Infinity;
+
+        let mostNegative     = Infinity;
+        let leastNegative    = -Infinity;
+
+
+        for (
+          let i = 0;
+          i < overlay.img.length;
+          i++
+        ) {
+
+          const value =
+            overlay.img[i];
+
+
+          // Positive surviving voxels
+
+          if (value > 0) {
+
+            if (value < smallestPositive) {
+
+              smallestPositive =
+                value;
+
+            }
+
+            if (value > largestPositive) {
+
+              largestPositive =
+                value;
+
+            }
+
+          }
+
+
+          // Negative surviving voxels
+
+          if (value < 0) {
+
+            if (value < mostNegative) {
+
+              mostNegative =
+                value;
+
+            }
+
+            if (value > leastNegative) {
+
+              leastNegative =
+                value;
+
+            }
+
+          }
+
         }
+
+
+        // -----------------------------------------------------
+        // APPLY POSITIVE RANGE
+        // -----------------------------------------------------
+
+        if (
+          smallestPositive !== Infinity
+        ) {
+
+          overlay.cal_min =
+            smallestPositive;
+
+          overlay.cal_max =
+            largestPositive;
+
+        }
+
+
+        // -----------------------------------------------------
+        // APPLY NEGATIVE RANGE
+        // -----------------------------------------------------
+
+        if (
+          mostNegative !== Infinity
+        ) {
+
+          overlay.cal_minNeg =
+            mostNegative;
+
+          overlay.cal_maxNeg =
+            leastNegative;
+
+        }
+
+
+        // -----------------------------------------------------
+        // SPECIAL CASE: INTERCEPT
+        //
+        // The intercept is effectively a positive ISC map, so
+        // we do not need a negative color scale for this model.
+        // -----------------------------------------------------
+
+        if (modelName === "Intercept") {
+
+          overlay.useNegativeCmap =
+            false;
+
+        }
+
+        else {
+
+          overlay.useNegativeCmap =
+            true;
+
+        }
+
+
+        // Hide anatomical-template color bar
+
+        nv.volumes[0].colorbarVisible =
+          false;
+
+
+        // Refresh rendering after changing calibration values
 
         nv.updateGLVolume();
 
-      } catch (error) {
+
+      }
+
+      catch (error) {
 
         console.error(error);
 
-        errorBox.style.display = "block";
+        errorBox.style.display =
+          "block";
 
         errorBox.textContent =
           "Viewer error: " +
-          (error?.message || String(error));
+          (
+            error?.message ||
+            String(error)
+          );
+
       }
+
     }
+
+
+    // ---------------------------------------------------------
+    // START VIEWER
+    // ---------------------------------------------------------
 
     async function startViewer() {
 
@@ -185,26 +390,51 @@
 
         await nv.attachTo("gl");
 
-        await loadModel("Intercept");
+        await loadModel(
+          "Intercept"
+        );
 
-      } catch (error) {
+      }
+
+      catch (error) {
 
         console.error(error);
 
-        errorBox.style.display = "block";
+        errorBox.style.display =
+          "block";
 
         errorBox.textContent =
           "Viewer error: " +
-          (error?.message || String(error));
+          (
+            error?.message ||
+            String(error)
+          );
+
       }
+
     }
+
+
+    // ---------------------------------------------------------
+    // MODEL DROPDOWN
+    // ---------------------------------------------------------
 
     modelSelect.addEventListener(
       "change",
+
       async function () {
-        await loadModel(this.value);
+
+        await loadModel(
+          this.value
+        );
+
       }
     );
+
+
+    // ---------------------------------------------------------
+    // GO
+    // ---------------------------------------------------------
 
     startViewer();
 
