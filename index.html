@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
+
   <meta charset="UTF-8">
 
   <meta
@@ -10,97 +12,358 @@
 
   <title>Interactive Phonetic Plasticity ISC Results</title>
 
+
   <style>
+
+    /* =========================================================
+       PAGE
+       ========================================================= */
+
     html,
     body {
       width: 100%;
       height: 100%;
       margin: 0;
+      padding: 0;
       overflow: hidden;
+
       background: #111;
       color: white;
-      font-family: Arial, sans-serif;
+
+      font-family:
+        Arial,
+        Helvetica,
+        sans-serif;
     }
+
+
+    /*
+      IMPORTANT:
+      The page has two rows:
+
+        1. Header = automatically grows to whatever height it needs
+        2. Viewer = fills all remaining screen space
+
+      There is NO fixed header height anymore.
+    */
+
+    body {
+      display: grid;
+
+      grid-template-rows:
+        auto
+        minmax(0, 1fr);
+    }
+
+
+    /* =========================================================
+       HEADER
+       ========================================================= */
 
     header {
       box-sizing: border-box;
-      height: 145px;
-      padding: 10px 16px;
+
+      width: 100%;
+
+      padding:
+        10px
+        16px
+        12px;
+
       background: #222;
     }
 
+
     h1 {
-      margin: 0 0 5px;
+      margin:
+        0
+        0
+        5px;
+
       font-size: 20px;
+      line-height: 1.2;
+
+      /*
+        Allow long title to wrap naturally on phones.
+      */
+      white-space: normal;
+      overflow-wrap: anywhere;
     }
 
-    p {
-      margin: 0 0 8px;
+
+    #description {
+      margin:
+        0
+        0
+        9px;
+
       color: #ddd;
+
+      font-size: 14px;
+      line-height: 1.3;
+    }
+
+
+    /* =========================================================
+       MODEL CONTROL
+       ========================================================= */
+
+    #controls {
+      display: flex;
+
+      flex-wrap: wrap;
+
+      align-items: center;
+
+      gap: 6px;
+
+      width: 100%;
+    }
+
+
+    #controls label {
+      flex: 0 0 auto;
+
       font-size: 14px;
     }
 
-    label {
+
+    #modelSelect {
+      box-sizing: border-box;
+
+      /*
+        Let the menu grow on desktop but shrink on phones.
+      */
+      flex:
+        0
+        1
+        360px;
+
+      min-width: 0;
+
+      max-width: 100%;
+
+      padding:
+        5px
+        8px;
+
       font-size: 14px;
     }
 
-    select {
-      margin-left: 6px;
-      padding: 4px 8px;
-      font-size: 14px;
-    }
+
+    /* =========================================================
+       VIEWER
+       ========================================================= */
 
     #viewer-container {
       position: relative;
+
       width: 100%;
-      height: calc(100% - 105px);
+      height: 100%;
+
+      /*
+        Critical for CSS grid:
+        allows the viewer to shrink into the remaining space.
+      */
+      min-width: 0;
+      min-height: 0;
+
+      overflow: hidden;
+
+      background: #111;
     }
+
 
     #gl {
       display: block;
+
       width: 100%;
       height: 100%;
     }
 
+
+    /* =========================================================
+       ERROR MESSAGE
+       ========================================================= */
+
     #error {
       position: absolute;
+
       top: 10px;
       left: 10px;
       right: 10px;
+
       z-index: 10;
+
       padding: 10px;
+
       color: white;
-      background: rgba(160, 0, 0, 0.9);
+
+      background:
+        rgba(160, 0, 0, 0.90);
+
       border-radius: 5px;
+
       display: none;
     }
+
+
+    /* =========================================================
+       PHONE / SMALL SCREEN
+       ========================================================= */
+
+    @media (max-width: 600px) {
+
+      header {
+        padding:
+          8px
+          10px
+          10px;
+      }
+
+
+      h1 {
+        font-size: 17px;
+        line-height: 1.15;
+
+        margin-bottom: 5px;
+      }
+
+
+      #description {
+        font-size: 12px;
+        line-height: 1.25;
+
+        margin-bottom: 7px;
+      }
+
+
+      /*
+        Stack Model label and selector if necessary.
+      */
+
+      #controls {
+        display: grid;
+
+        grid-template-columns:
+          auto
+          minmax(0, 1fr);
+
+        gap: 6px;
+
+        align-items: center;
+      }
+
+
+      #controls label {
+        font-size: 13px;
+      }
+
+
+      #modelSelect {
+        width: 100%;
+        max-width: 100%;
+
+        font-size: 13px;
+
+        padding:
+          5px
+          6px;
+      }
+
+    }
+
+
+    /*
+      Extremely narrow phones:
+      put "Model:" above the dropdown.
+    */
+
+    @media (max-width: 370px) {
+
+      #controls {
+        grid-template-columns: 1fr;
+      }
+
+
+      #modelSelect {
+        width: 100%;
+      }
+
+    }
+
   </style>
+
 </head>
+
 
 <body>
 
-  <header>
-    <h1>Interactive Phonetic Plasticity ISC Results</h1>
 
-    <p>
-      Whole-brain inter-subject correlation results thresholded at
-      FDR q &lt; .05.
+  <!-- =======================================================
+       HEADER
+       ======================================================= -->
+
+  <header>
+
+    <h1>
+      Interactive Phonetic Plasticity ISC Results
+    </h1>
+
+
+    <p id="description">
+      Whole-brain inter-subject correlation results.
     </p>
 
-    <label for="modelSelect">
-      Model:
+
+    <div id="controls">
+
+      <label for="modelSelect">
+        Model:
+      </label>
+
+
       <select id="modelSelect">
-        <option value="Intercept">Intercept</option>
-        <option value="NN">Plasticity Difference (NN)</option>
-        <option value="AnnaK">Mean Plasticity (AnnaK)</option>
+
+        <option value="Intercept">
+          Intercept — q &lt; .05
+        </option>
+
+        <option value="InterceptK60">
+          Intercept — q &lt; .05, k ≥ 60
+        </option>
+
+        <option value="NN">
+          Plasticity Difference (NN) — q &lt; .05, k ≥ 60
+        </option>
+
+        <option value="AnnaK">
+          Mean Plasticity (AnnaK) — q &lt; .05, k ≥ 60
+        </option>
+
       </select>
-    </label>
+
+    </div>
+
   </header>
 
+
+  <!-- =======================================================
+       VIEWER
+       ======================================================= -->
+
   <div id="viewer-container">
+
     <canvas id="gl"></canvas>
+
     <div id="error"></div>
+
   </div>
+
+
+  <!-- =======================================================
+       NIIVUE
+       ======================================================= -->
 
   <script type="module">
 
@@ -108,73 +371,176 @@
       from "https://unpkg.com/@niivue/niivue@0.69.0/dist/index.js";
 
 
+    // =========================================================
+    // FILES
+    // =========================================================
+
     const underlayFile =
       "./MNI152_2009_template.nii.gz";
 
 
     const files = {
-      Intercept: "./Intercept_q05.nii.gz",
-      NN: "./NN_q05_k60.nii.gz",
-      AnnaK: "./AnnaK_q05_k60.nii.gz"
+
+      Intercept:
+        "./Intercept_q05.nii.gz",
+
+      InterceptK60:
+        "./Intercept_q05_k60.nii.gz",
+
+      NN:
+        "./NN_q05_k60.nii.gz",
+
+      AnnaK:
+        "./AnnaK_q05_k60.nii.gz"
+
     };
 
 
+    // =========================================================
+    // SELECTED MODEL
+    //
+    // Each dropdown change reloads the page.
+    //
+    // This prevents NiiVue display settings from one model
+    // carrying over into another model.
+    // =========================================================
+
     const params =
-      new URLSearchParams(window.location.search);
+      new URLSearchParams(
+        window.location.search
+      );
+
 
     let selectedModel =
-      params.get("model") || "Intercept";
+      params.get("model") ||
+      "Intercept";
+
+
+    const validModels = [
+      "Intercept",
+      "InterceptK60",
+      "NN",
+      "AnnaK"
+    ];
 
 
     if (
-      selectedModel !== "Intercept" &&
-      selectedModel !== "NN" &&
-      selectedModel !== "AnnaK"
+      !validModels.includes(
+        selectedModel
+      )
     ) {
-      selectedModel = "Intercept";
+
+      selectedModel =
+        "Intercept";
+
     }
 
 
+    // =========================================================
+    // PAGE ELEMENTS
+    // =========================================================
+
     const modelSelect =
-      document.getElementById("modelSelect");
+      document.getElementById(
+        "modelSelect"
+      );
+
 
     const errorBox =
-      document.getElementById("error");
+      document.getElementById(
+        "error"
+      );
+
+
+    const description =
+      document.getElementById(
+        "description"
+      );
 
 
     modelSelect.value =
       selectedModel;
 
 
+    // =========================================================
+    // DESCRIPTION TEXT
+    // =========================================================
+
+    const descriptions = {
+
+      Intercept:
+        "Intercept map thresholded at FDR q < .05.",
+
+      InterceptK60:
+        "Intercept map thresholded at FDR q < .05 with minimum cluster extent k ≥ 60 voxels.",
+
+      NN:
+        "Plasticity-difference model thresholded at FDR q < .05 with minimum cluster extent k ≥ 60 voxels.",
+
+      AnnaK:
+        "Mean-plasticity model thresholded at FDR q < .05 with minimum cluster extent k ≥ 60 voxels."
+
+    };
+
+
+    description.textContent =
+      descriptions[selectedModel];
+
+
+    // =========================================================
+    // MODEL SWITCH
+    // =========================================================
+
     modelSelect.addEventListener(
+
       "change",
+
       function () {
 
         window.location.search =
           "?model=" +
-          encodeURIComponent(this.value);
+          encodeURIComponent(
+            this.value
+          );
 
       }
+
     );
 
 
-    const nv = new Niivue({
+    // =========================================================
+    // CREATE NIIVUE
+    // =========================================================
 
-      isResizeCanvas: true,
+    const nv =
+      new Niivue({
 
-      backColor: [
-        0.05,
-        0.05,
-        0.05,
-        1
-      ],
+        isResizeCanvas: true,
 
-      isColorbar: true
+        backColor: [
+          0.05,
+          0.05,
+          0.05,
+          1
+        ],
 
-    });
+        isColorbar: true
+
+      });
 
 
-    function applySignedRange(overlay) {
+    // =========================================================
+    // SIGNED-RANGE HELPER
+    //
+    // Used for Intercept / AnnaK.
+    //
+    // Zero-valued voxels are ignored when determining the
+    // displayed coefficient range.
+    // =========================================================
+
+    function applySignedRange(
+      overlay
+    ) {
 
       let smallestPositive =
         Infinity;
@@ -199,44 +565,64 @@
           overlay.img[i];
 
 
-        if (!Number.isFinite(value)) {
+        if (
+          !Number.isFinite(value)
+        ) {
           continue;
         }
 
 
-        if (value > 0) {
+        if (
+          value > 0
+        ) {
 
           if (
-            value < smallestPositive
+            value <
+            smallestPositive
           ) {
+
             smallestPositive =
               value;
+
           }
 
+
           if (
-            value > largestPositive
+            value >
+            largestPositive
           ) {
+
             largestPositive =
               value;
+
           }
 
         }
 
 
-        if (value < 0) {
+        if (
+          value < 0
+        ) {
 
           if (
-            value < mostNegative
+            value <
+            mostNegative
           ) {
+
             mostNegative =
               value;
+
           }
 
+
           if (
-            value > leastNegative
+            value >
+            leastNegative
           ) {
+
             leastNegative =
               value;
+
           }
 
         }
@@ -245,7 +631,8 @@
 
 
       if (
-        smallestPositive !== Infinity
+        smallestPositive !==
+        Infinity
       ) {
 
         overlay.cal_min =
@@ -258,7 +645,8 @@
 
 
       if (
-        mostNegative !== Infinity
+        mostNegative !==
+        Infinity
       ) {
 
         overlay.cal_minNeg =
@@ -272,52 +660,119 @@
     }
 
 
+    // =========================================================
+    // LOAD VIEWER
+    // =========================================================
+
     async function startViewer() {
 
       try {
 
-        await nv.attachTo("gl");
+        await nv.attachTo(
+          "gl"
+        );
 
 
         // =====================================================
         // NN
+        //
+        // All surviving NN coefficients are negative:
+        //
+        // -0.0309572 to -0.00820608
+        //
+        // Warm colors represent those negative NN effects.
+        //
+        // The dummy positive range prevents zero from being
+        // rendered as a colored field.
         // =====================================================
 
-        if (selectedModel === "NN") {
+        if (
+          selectedModel ===
+          "NN"
+        ) {
 
           await nv.loadVolumes([
 
             {
-              url: underlayFile,
-              colormap: "gray",
-              opacity: 1,
-              colorbarVisible: false
+
+              url:
+                underlayFile,
+
+              colormap:
+                "gray",
+
+              opacity:
+                1,
+
+              colorbarVisible:
+                false
+
             },
 
+
             {
-              url: files.NN,
 
-              colormap: "winter",
+              url:
+                files.NN,
 
-              colormapNegative: "warm",
+              /*
+                There are no surviving
+                positive NN effects.
+              */
 
-              useNegativeCmap: true,
+              colormap:
+                "winter",
 
-              opacity: 0.9,
 
-              colorbarVisible: true,
+              /*
+                Negative NN effects
+                use the warm scale.
+              */
 
-              ignoreZeroVoxels: true,
+              colormapNegative:
+                "warm",
 
-              alphaThreshold: true,
+              useNegativeCmap:
+                true,
 
-              trustCalMinMax: true,
+              opacity:
+                0.9,
 
-              cal_min: 1,
-              cal_max: 2,
+              colorbarVisible:
+                true,
 
-              cal_minNeg: -0.0309572,
-              cal_maxNeg: -0.00820608
+              ignoreZeroVoxels:
+                true,
+
+              alphaThreshold:
+                true,
+
+              trustCalMinMax:
+                true,
+
+
+              /*
+                Dummy positive range.
+              */
+
+              cal_min:
+                1,
+
+              cal_max:
+                2,
+
+
+              /*
+                Actual surviving
+                NN coefficient range.
+              */
+
+              cal_minNeg:
+                -0.0309572,
+
+              cal_maxNeg:
+                -0.00820608
+
             }
 
           ]);
@@ -333,46 +788,75 @@
           overlay.cal_max =
             2;
 
+
           overlay.cal_minNeg =
             -0.0309572;
 
           overlay.cal_maxNeg =
             -0.00820608;
 
+
           overlay.useNegativeCmap =
             true;
 
 
-          nv.volumes[0].colorbarVisible =
+          nv.volumes[0]
+            .colorbarVisible =
             false;
+
 
           nv.updateGLVolume();
 
+
           return;
+
         }
 
 
         // =====================================================
         // INTERCEPT
-        // q < .05, no k = 60 cluster restriction
+        // FDR q < .05
+        // NO k >= 60 extent threshold
         // =====================================================
 
-        if (selectedModel === "Intercept") {
+        if (
+          selectedModel ===
+          "Intercept"
+        ) {
 
           await nv.loadVolumes([
 
             {
-              url: underlayFile,
-              colormap: "gray",
-              opacity: 1,
-              colorbarVisible: false
+
+              url:
+                underlayFile,
+
+              colormap:
+                "gray",
+
+              opacity:
+                1,
+
+              colorbarVisible:
+                false
+
             },
 
+
             {
-              url: files.Intercept,
-              colormap: "warm",
-              opacity: 0.9,
-              colorbarVisible: true
+
+              url:
+                files.Intercept,
+
+              colormap:
+                "warm",
+
+              opacity:
+                0.9,
+
+              colorbarVisible:
+                true
+
             }
 
           ]);
@@ -391,44 +875,62 @@
             false;
 
 
-          nv.volumes[0].colorbarVisible =
+          nv.volumes[0]
+            .colorbarVisible =
             false;
 
 
           nv.updateGLVolume();
 
+
           return;
+
         }
 
 
         // =====================================================
-        // ANNAK
-        // q < .05 + k >= 60
+        // INTERCEPT
+        // FDR q < .05 + k >= 60
         // =====================================================
 
-        if (selectedModel === "AnnaK") {
+        if (
+          selectedModel ===
+          "InterceptK60"
+        ) {
 
           await nv.loadVolumes([
 
             {
-              url: underlayFile,
-              colormap: "gray",
-              opacity: 1,
-              colorbarVisible: false
+
+              url:
+                underlayFile,
+
+              colormap:
+                "gray",
+
+              opacity:
+                1,
+
+              colorbarVisible:
+                false
+
             },
 
+
             {
-              url: files.AnnaK,
 
-              colormap: "warm",
+              url:
+                files.InterceptK60,
 
-              colormapNegative: "winter",
+              colormap:
+                "warm",
 
-              useNegativeCmap: true,
+              opacity:
+                0.9,
 
-              opacity: 0.9,
+              colorbarVisible:
+                true
 
-              colorbarVisible: true
             }
 
           ]);
@@ -443,24 +945,113 @@
           );
 
 
-          nv.volumes[0].colorbarVisible =
+          overlay.useNegativeCmap =
+            false;
+
+
+          nv.volumes[0]
+            .colorbarVisible =
             false;
 
 
           nv.updateGLVolume();
 
+
           return;
+
+        }
+
+
+        // =====================================================
+        // ANNAK
+        // FDR q < .05 + k >= 60
+        // =====================================================
+
+        if (
+          selectedModel ===
+          "AnnaK"
+        ) {
+
+          await nv.loadVolumes([
+
+            {
+
+              url:
+                underlayFile,
+
+              colormap:
+                "gray",
+
+              opacity:
+                1,
+
+              colorbarVisible:
+                false
+
+            },
+
+
+            {
+
+              url:
+                files.AnnaK,
+
+              colormap:
+                "warm",
+
+              colormapNegative:
+                "winter",
+
+              useNegativeCmap:
+                true,
+
+              opacity:
+                0.9,
+
+              colorbarVisible:
+                true
+
+            }
+
+          ]);
+
+
+          const overlay =
+            nv.volumes[1];
+
+
+          applySignedRange(
+            overlay
+          );
+
+
+          nv.volumes[0]
+            .colorbarVisible =
+            false;
+
+
+          nv.updateGLVolume();
+
+
+          return;
+
         }
 
       }
 
 
-      catch (error) {
+      catch (
+        error
+      ) {
 
-        console.error(error);
+        console.error(
+          error
+        );
+
 
         errorBox.style.display =
           "block";
+
 
         errorBox.textContent =
           "Viewer error: " +
@@ -474,9 +1065,14 @@
     }
 
 
+    // =========================================================
+    // START
+    // =========================================================
+
     startViewer();
 
   </script>
 
 </body>
+
 </html>
