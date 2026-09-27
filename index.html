@@ -102,6 +102,7 @@
     <div id="error"></div>
   </div>
 
+
   <script type="module">
 
     import { Niivue }
@@ -118,7 +119,7 @@
         "./Intercept_q05_k60.nii.gz",
 
       NN:
-        "./NN_q05_k60_nan.nii.gz",
+        "./NN_q05_k60.nii.gz",
 
       AnnaK:
         "./Annak_q05_k60.nii.gz"
@@ -161,26 +162,48 @@
 
         // =====================================================
         // NN ONLY
+        //
+        // This is the ONLY model receiving special treatment.
+        //
+        // Positive NN values = cool colors
+        // Negative NN values = warm colors
+        //
+        // Zero-valued background is explicitly ignored.
         // =====================================================
 
         if (modelName === "NN") {
 
           overlaySettings = {
 
-            url: modelFiles[modelName],
+            url:
+              modelFiles.NN,
 
-            // Flip NN colors:
-            // positive = cool
-            colormap: "winter",
+            // positive values = cool
+            colormap:
+              "winter",
 
-            // negative = warm
-            colormapNegative: "warm",
+            // negative values = warm
+            colormapNegative:
+              "warm",
 
-            useNegativeCmap: true,
+            opacity:
+              0.9,
 
-            opacity: 0.9,
+            colorbarVisible:
+              true,
 
-            colorbarVisible: true
+            // NN ONLY:
+            // prevent zero background from affecting scaling
+            ignoreZeroVoxels:
+              true,
+
+            // NN ONLY:
+            // make values outside the calibrated ranges transparent
+            alphaThreshold:
+              true,
+
+            trustCalMinMax:
+              true
 
           };
 
@@ -188,42 +211,80 @@
 
 
         // =====================================================
-        // INTERCEPT + ANNAK
-        // Keep exactly the same styling that already looked good
+        // INTERCEPT
+        //
+        // Leave styling alone.
+        // =====================================================
+
+        else if (modelName === "Intercept") {
+
+          overlaySettings = {
+
+            url:
+              modelFiles.Intercept,
+
+            colormap:
+              "warm",
+
+            opacity:
+              0.9,
+
+            colorbarVisible:
+              true
+
+          };
+
+        }
+
+
+        // =====================================================
+        // ANNAK
+        //
+        // Leave styling alone.
         // =====================================================
 
         else {
 
           overlaySettings = {
 
-            url: modelFiles[modelName],
+            url:
+              modelFiles.AnnaK,
 
-            colormap: "warm",
+            colormap:
+              "warm",
 
-            colormapNegative: "winter",
+            colormapNegative:
+              "winter",
 
-            useNegativeCmap:
-              modelName !== "Intercept",
+            opacity:
+              0.9,
 
-            opacity: 0.9,
-
-            colorbarVisible: true
+            colorbarVisible:
+              true
 
           };
 
         }
 
 
+        // =====================================================
+        // LOAD MNI + SELECTED MODEL
+        // =====================================================
+
         await nv.loadVolumes([
 
           {
-            url: underlayFile,
+            url:
+              underlayFile,
 
-            colormap: "gray",
+            colormap:
+              "gray",
 
-            opacity: 1,
+            opacity:
+              1,
 
-            colorbarVisible: false
+            colorbarVisible:
+              false
           },
 
           overlaySettings
@@ -236,8 +297,10 @@
 
 
         // =====================================================
-        // CALCULATE DISPLAY RANGE
-        // Ignore zeros and NaNs
+        // DETERMINE NON-ZERO STATISTICAL RANGE
+        //
+        // Same working behavior used previously for Intercept
+        // and AnnaK.
         // =====================================================
 
         let smallestPositive =
@@ -263,14 +326,10 @@
             overlay.img[i];
 
 
-          // Ignore NaN / invalid values
-
           if (!Number.isFinite(value)) {
             continue;
           }
 
-
-          // Ignore zero background
 
           if (value === 0) {
             continue;
@@ -287,6 +346,7 @@
                 value;
 
             }
+
 
             if (
               value > largestPositive
@@ -310,6 +370,7 @@
                 value;
 
             }
+
 
             if (
               value > leastNegative
@@ -344,6 +405,11 @@
 
         // =====================================================
         // NEGATIVE RANGE
+        //
+        // NiiVue expects:
+        //
+        // cal_minNeg = most negative value
+        // cal_maxNeg = negative value closest to zero
         // =====================================================
 
         if (
@@ -360,18 +426,70 @@
 
 
         // =====================================================
-        // INTERCEPT ONLY
+        // INTERCEPT
+        //
+        // Ensure no negative scale is used.
         // =====================================================
 
         if (
           modelName === "Intercept"
         ) {
 
-          overlay.useNegativeCmap =
-            false;
+          overlay.colormapNegative =
+            "";
 
         }
 
+
+        // =====================================================
+        // NN ONLY:
+        //
+        // Reinforce the flipped color maps AFTER loading.
+        // This does not affect AnnaK or Intercept.
+        // =====================================================
+
+        if (
+          modelName === "NN"
+        ) {
+
+          nv.setColormap(
+            overlay.id,
+            "winter"
+          );
+
+          nv.setColormapNegative(
+            overlay.id,
+            "warm"
+          );
+
+        }
+
+
+        // =====================================================
+        // ANNAK ONLY:
+        //
+        // Preserve the working warm-positive /
+        // cool-negative appearance.
+        // =====================================================
+
+        if (
+          modelName === "AnnaK"
+        ) {
+
+          nv.setColormap(
+            overlay.id,
+            "warm"
+          );
+
+          nv.setColormapNegative(
+            overlay.id,
+            "winter"
+          );
+
+        }
+
+
+        // Hide MNI color bar
 
         nv.volumes[0].colorbarVisible =
           false;
@@ -434,6 +552,7 @@
 
 
     modelSelect.addEventListener(
+
       "change",
 
       async function () {
@@ -443,6 +562,7 @@
         );
 
       }
+
     );
 
 
