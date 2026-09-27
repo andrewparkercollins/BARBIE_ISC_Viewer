@@ -89,6 +89,7 @@
 
     <label for="modelSelect">
       Model:
+
       <select id="modelSelect">
         <option value="Intercept">Intercept</option>
         <option value="NN">Plasticity Difference (NN)</option>
@@ -102,53 +103,231 @@
     <div id="error"></div>
   </div>
 
+
   <script type="module">
 
     import { Niivue }
       from "https://unpkg.com/@niivue/niivue@0.69.0/dist/index.js";
+
+
+    // =========================================================
+    // FILES
+    // =========================================================
 
     const underlayFile =
       "./MNI152_2009_template.nii.gz";
 
     const files = {
       Intercept: "./Intercept_q05_k60.nii.gz",
-      AnnaK: "./AnnaK_q05_k60.nii.gz",
-      NN: "./NN_q05_k60.nii.gz"
+      NN: "./NN_q05_k60.nii.gz",
+      AnnaK: "./AnnaK_q05_k60.nii.gz"
     };
 
-    const errorBox =
-      document.getElementById("error");
+
+    // =========================================================
+    // DETERMINE SELECTED MODEL FROM URL
+    //
+    // Example:
+    // index.html?model=NN
+    //
+    // Every model switch reloads the page, so NiiVue starts
+    // completely fresh and cannot carry state between models.
+    // =========================================================
+
+    const params =
+      new URLSearchParams(window.location.search);
+
+    let selectedModel =
+      params.get("model") || "Intercept";
+
+    if (
+      selectedModel !== "Intercept" &&
+      selectedModel !== "NN" &&
+      selectedModel !== "AnnaK"
+    ) {
+      selectedModel = "Intercept";
+    }
+
 
     const modelSelect =
       document.getElementById("modelSelect");
 
+    const errorBox =
+      document.getElementById("error");
+
+    modelSelect.value =
+      selectedModel;
+
+
+    // =========================================================
+    // MODEL SWITCH
+    //
+    // Reload the entire page instead of reusing the NiiVue
+    // instance.
+    // =========================================================
+
+    modelSelect.addEventListener(
+      "change",
+      function () {
+
+        const model =
+          this.value;
+
+        window.location.search =
+          "?model=" +
+          encodeURIComponent(model);
+
+      }
+    );
+
+
+    // =========================================================
+    // CREATE A BRAND-NEW NIIVUE INSTANCE
+    // =========================================================
+
     const nv = new Niivue({
+
       isResizeCanvas: true,
-      backColor: [0.05, 0.05, 0.05, 1],
+
+      backColor: [
+        0.05,
+        0.05,
+        0.05,
+        1
+      ],
+
       isColorbar: true
+
     });
 
 
-    async function loadModel(modelName) {
+    // =========================================================
+    // INTERCEPT / ANNAK RANGE UTILITY
+    // =========================================================
+
+    function applySignedRange(overlay) {
+
+      let smallestPositive =
+        Infinity;
+
+      let largestPositive =
+        -Infinity;
+
+      let mostNegative =
+        Infinity;
+
+      let leastNegative =
+        -Infinity;
+
+
+      for (
+        let i = 0;
+        i < overlay.img.length;
+        i++
+      ) {
+
+        const value =
+          overlay.img[i];
+
+
+        if (!Number.isFinite(value)) {
+          continue;
+        }
+
+
+        if (value > 0) {
+
+          if (
+            value < smallestPositive
+          ) {
+            smallestPositive =
+              value;
+          }
+
+
+          if (
+            value > largestPositive
+          ) {
+            largestPositive =
+              value;
+          }
+
+        }
+
+
+        if (value < 0) {
+
+          if (
+            value < mostNegative
+          ) {
+            mostNegative =
+              value;
+          }
+
+
+          if (
+            value > leastNegative
+          ) {
+            leastNegative =
+              value;
+          }
+
+        }
+
+      }
+
+
+      if (
+        smallestPositive !== Infinity
+      ) {
+
+        overlay.cal_min =
+          smallestPositive;
+
+        overlay.cal_max =
+          largestPositive;
+
+      }
+
+
+      if (
+        mostNegative !== Infinity
+      ) {
+
+        overlay.cal_minNeg =
+          mostNegative;
+
+        overlay.cal_maxNeg =
+          leastNegative;
+
+      }
+
+    }
+
+
+    // =========================================================
+    // LOAD SELECTED MODEL
+    // =========================================================
+
+    async function startViewer() {
 
       try {
 
-        errorBox.style.display = "none";
+        await nv.attachTo("gl");
 
 
         // =====================================================
-        // NN ONLY
+        // NN
         //
-        // Use the original signed NN file.
-        // All surviving values are negative:
-        //   -0.0309572 to -0.00820608
+        // Original NN_q05_k60 file.
         //
-        // We give the negative values the warm color scale.
-        // We set a dummy positive range > 1 so zero background
-        // is not colored on the positive side.
+        // All surviving NN values are negative:
+        // -0.0309572 to -0.00820608
+        //
+        // Negative effects are displayed with the warm scale.
         // =====================================================
 
-        if (modelName === "NN") {
+        if (selectedModel === "NN") {
 
           await nv.loadVolumes([
 
@@ -162,44 +341,56 @@
             {
               url: files.NN,
 
-              // Positive side (there are no surviving positives)
               colormap: "winter",
 
-              // Negative side (the actual surviving NN signal)
               colormapNegative: "warm",
 
               useNegativeCmap: true,
 
               opacity: 0.9,
+
               colorbarVisible: true,
 
               ignoreZeroVoxels: true,
+
               alphaThreshold: true,
+
               trustCalMinMax: true,
 
-              // Dummy positive range so zeros do not get mapped
+              // Dummy positive range.
+              // No significant positive NN values exist.
               cal_min: 1,
               cal_max: 2,
 
-              // Real negative range from 3dBrickStat
+              // Actual surviving NN range.
               cal_minNeg: -0.0309572,
               cal_maxNeg: -0.00820608
             }
 
           ]);
 
-          const overlay = nv.volumes[1];
 
-          // Reassert calibration after load
-          overlay.cal_min = 1;
-          overlay.cal_max = 2;
+          const overlay =
+            nv.volumes[1];
 
-          overlay.cal_minNeg = -0.0309572;
-          overlay.cal_maxNeg = -0.00820608;
+          overlay.cal_min =
+            1;
 
-          overlay.useNegativeCmap = true;
+          overlay.cal_max =
+            2;
 
-          nv.volumes[0].colorbarVisible = false;
+          overlay.cal_minNeg =
+            -0.0309572;
+
+          overlay.cal_maxNeg =
+            -0.00820608;
+
+          overlay.useNegativeCmap =
+            true;
+
+
+          nv.volumes[0].colorbarVisible =
+            false;
 
           nv.updateGLVolume();
 
@@ -208,135 +399,119 @@
 
 
         // =====================================================
-        // INTERCEPT + ANNAK
-        //
-        // Keep the previously working logic unchanged.
+        // INTERCEPT
         // =====================================================
 
-        let overlaySettings;
+        if (selectedModel === "Intercept") {
 
-        if (modelName === "Intercept") {
+          await nv.loadVolumes([
 
-          overlaySettings = {
-            url: files.Intercept,
-            colormap: "warm",
-            colormapNegative: "winter",
-            useNegativeCmap: false,
-            opacity: 0.9,
-            colorbarVisible: true
-          };
+            {
+              url: underlayFile,
+              colormap: "gray",
+              opacity: 1,
+              colorbarVisible: false
+            },
 
-        } else {
-
-          overlaySettings = {
-            url: files.AnnaK,
-            colormap: "warm",
-            colormapNegative: "winter",
-            useNegativeCmap: true,
-            opacity: 0.9,
-            colorbarVisible: true
-          };
-
-        }
-
-        await nv.loadVolumes([
-
-          {
-            url: underlayFile,
-            colormap: "gray",
-            opacity: 1,
-            colorbarVisible: false
-          },
-
-          overlaySettings
-
-        ]);
-
-        const overlay = nv.volumes[1];
-
-        let smallestPositive = Infinity;
-        let largestPositive = -Infinity;
-
-        let mostNegative = Infinity;
-        let leastNegative = -Infinity;
-
-        for (let i = 0; i < overlay.img.length; i++) {
-
-          const value = overlay.img[i];
-
-          if (!Number.isFinite(value)) {
-            continue;
-          }
-
-          if (value > 0) {
-            if (value < smallestPositive) {
-              smallestPositive = value;
+            {
+              url: files.Intercept,
+              colormap: "warm",
+              opacity: 0.9,
+              colorbarVisible: true
             }
-            if (value > largestPositive) {
-              largestPositive = value;
+
+          ]);
+
+
+          const overlay =
+            nv.volumes[1];
+
+          applySignedRange(
+            overlay
+          );
+
+          overlay.useNegativeCmap =
+            false;
+
+
+          nv.volumes[0].colorbarVisible =
+            false;
+
+          nv.updateGLVolume();
+
+          return;
+        }
+
+
+        // =====================================================
+        // ANNAK
+        // =====================================================
+
+        if (selectedModel === "AnnaK") {
+
+          await nv.loadVolumes([
+
+            {
+              url: underlayFile,
+              colormap: "gray",
+              opacity: 1,
+              colorbarVisible: false
+            },
+
+            {
+              url: files.AnnaK,
+
+              colormap: "warm",
+
+              colormapNegative: "winter",
+
+              useNegativeCmap: true,
+
+              opacity: 0.9,
+
+              colorbarVisible: true
             }
-          }
 
-          if (value < 0) {
-            if (value < mostNegative) {
-              mostNegative = value;
-            }
-            if (value > leastNegative) {
-              leastNegative = value;
-            }
-          }
+          ]);
+
+
+          const overlay =
+            nv.volumes[1];
+
+          applySignedRange(
+            overlay
+          );
+
+
+          nv.volumes[0].colorbarVisible =
+            false;
+
+          nv.updateGLVolume();
+
+          return;
         }
 
-        if (smallestPositive !== Infinity) {
-          overlay.cal_min = smallestPositive;
-          overlay.cal_max = largestPositive;
-        }
+      }
 
-        if (mostNegative !== Infinity) {
-          overlay.cal_minNeg = mostNegative;
-          overlay.cal_maxNeg = leastNegative;
-        }
 
-        if (modelName === "Intercept") {
-          overlay.useNegativeCmap = false;
-        }
-
-        nv.volumes[0].colorbarVisible = false;
-
-        nv.updateGLVolume();
-
-      } catch (error) {
+      catch (error) {
 
         console.error(error);
 
-        errorBox.style.display = "block";
+        errorBox.style.display =
+          "block";
+
         errorBox.textContent =
           "Viewer error: " +
-          (error?.message || String(error));
+          (
+            error?.message ||
+            String(error)
+          );
+
       }
+
     }
 
-
-    async function startViewer() {
-
-      try {
-        await nv.attachTo("gl");
-        await loadModel("Intercept");
-      } catch (error) {
-        console.error(error);
-        errorBox.style.display = "block";
-        errorBox.textContent =
-          "Viewer error: " +
-          (error?.message || String(error));
-      }
-    }
-
-    modelSelect.addEventListener(
-      "change",
-      async function () {
-        await loadModel(this.value);
-      }
-    );
 
     startViewer();
 
