@@ -112,7 +112,6 @@
         360px;
 
       min-width: 0;
-
       max-width: 100%;
 
       padding:
@@ -302,6 +301,10 @@
       from "https://unpkg.com/@niivue/niivue@0.69.0/dist/index.js";
 
 
+    // =========================================================
+    // FILES
+    // =========================================================
+
     const underlayFile =
       "./MNI152_2009_template.nii.gz";
 
@@ -320,35 +323,9 @@
     };
 
 
-    const params =
-      new URLSearchParams(
-        window.location.search
-      );
-
-
-    let selectedModel =
-      params.get("model") ||
-      "Intercept";
-
-
-    const validModels = [
-      "Intercept",
-      "NN",
-      "AnnaK"
-    ];
-
-
-    if (
-      !validModels.includes(
-        selectedModel
-      )
-    ) {
-
-      selectedModel =
-        "Intercept";
-
-    }
-
+    // =========================================================
+    // ELEMENTS
+    // =========================================================
 
     const modelSelect =
       document.getElementById(
@@ -368,9 +345,9 @@
       );
 
 
-    modelSelect.value =
-      selectedModel;
-
+    // =========================================================
+    // DESCRIPTIONS
+    // =========================================================
 
     const descriptions = {
 
@@ -386,26 +363,9 @@
     };
 
 
-    description.textContent =
-      descriptions[selectedModel];
-
-
-    modelSelect.addEventListener(
-
-      "change",
-
-      function () {
-
-        window.location.search =
-          "?model=" +
-          encodeURIComponent(
-            this.value
-          );
-
-      }
-
-    );
-
+    // =========================================================
+    // CREATE ONE NIIVUE INSTANCE
+    // =========================================================
 
     const nv =
       new Niivue({
@@ -423,6 +383,10 @@
 
       });
 
+
+    // =========================================================
+    // RANGE HELPER
+    // =========================================================
 
     function applySignedRange(
       overlay
@@ -546,21 +510,49 @@
     }
 
 
-    async function startViewer() {
+    // =========================================================
+    // LOAD MODEL WITHOUT RELOADING PAGE
+    // =========================================================
+
+    async function loadModel(
+      modelName,
+      preservePosition = true
+    ) {
 
       try {
 
-        await nv.attachTo(
-          "gl"
-        );
+        errorBox.style.display =
+          "none";
 
 
-        /* =====================================================
-           NN
-           ===================================================== */
+        // Save current crosshair location.
+        // NiiVue stores this as normalized scene coordinates.
+
+        let savedCrosshair =
+          null;
+
 
         if (
-          selectedModel ===
+          preservePosition &&
+          nv.scene &&
+          nv.scene.crosshairPos
+        ) {
+
+          savedCrosshair = [
+            nv.scene.crosshairPos[0],
+            nv.scene.crosshairPos[1],
+            nv.scene.crosshairPos[2]
+          ];
+
+        }
+
+
+        // =====================================================
+        // NN
+        // =====================================================
+
+        if (
+          modelName ===
           "NN"
         ) {
 
@@ -612,17 +604,11 @@
               trustCalMinMax:
                 true,
 
-
-              /* No significant positive NN effects */
-
               cal_min:
                 1,
 
               cal_max:
                 2,
-
-
-              /* Actual surviving negative NN range */
 
               cal_minNeg:
                 -0.0309572,
@@ -656,27 +642,15 @@
           overlay.useNegativeCmap =
             true;
 
-
-          nv.volumes[0]
-            .colorbarVisible =
-            false;
-
-
-          nv.updateGLVolume();
-
-
-          return;
-
         }
 
 
-        /* =====================================================
-           INTERCEPT
-           FDR q < .05
-           ===================================================== */
+        // =====================================================
+        // INTERCEPT
+        // =====================================================
 
-        if (
-          selectedModel ===
+        else if (
+          modelName ===
           "Intercept"
         ) {
 
@@ -730,27 +704,15 @@
           overlay.useNegativeCmap =
             false;
 
-
-          nv.volumes[0]
-            .colorbarVisible =
-            false;
-
-
-          nv.updateGLVolume();
-
-
-          return;
-
         }
 
 
-        /* =====================================================
-           ANNAK
-           FDR q < .05 + k >= 60
-           ===================================================== */
+        // =====================================================
+        // ANNAK
+        // =====================================================
 
-        if (
-          selectedModel ===
+        else if (
+          modelName ===
           "AnnaK"
         ) {
 
@@ -806,18 +768,40 @@
             overlay
           );
 
-
-          nv.volumes[0]
-            .colorbarVisible =
-            false;
+        }
 
 
-          nv.updateGLVolume();
+        // Hide anatomical-template color bar.
+
+        nv.volumes[0]
+          .colorbarVisible =
+          false;
 
 
-          return;
+        // =====================================================
+        // RESTORE CROSSHAIR
+        // =====================================================
+
+        if (
+          savedCrosshair !== null
+        ) {
+
+          nv.scene.crosshairPos = [
+            savedCrosshair[0],
+            savedCrosshair[1],
+            savedCrosshair[2]
+          ];
 
         }
+
+
+        description.textContent =
+          descriptions[modelName];
+
+
+        nv.updateGLVolume();
+
+        nv.drawScene();
 
       }
 
@@ -843,6 +827,53 @@
           );
 
       }
+
+    }
+
+
+    // =========================================================
+    // DROPDOWN
+    //
+    // NO PAGE REFRESH.
+    // =========================================================
+
+    modelSelect.addEventListener(
+
+      "change",
+
+      async function () {
+
+        await loadModel(
+          this.value,
+          true
+        );
+
+      }
+
+    );
+
+
+    // =========================================================
+    // START
+    //
+    // Initial load does not need to preserve a crosshair.
+    // =========================================================
+
+    async function startViewer() {
+
+      await nv.attachTo(
+        "gl"
+      );
+
+
+      modelSelect.value =
+        "Intercept";
+
+
+      await loadModel(
+        "Intercept",
+        false
+      );
 
     }
 
