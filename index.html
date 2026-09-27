@@ -8,7 +8,7 @@
     content="width=device-width, initial-scale=1.0"
   >
 
-  <title>Interactive Iguana MRI</title>
+  <title>BARBIE ISC Results</title>
 
   <style>
     html,
@@ -24,7 +24,7 @@
 
     header {
       box-sizing: border-box;
-      height: 75px;
+      height: 105px;
       padding: 10px 16px;
       background: #222;
     }
@@ -35,15 +35,25 @@
     }
 
     p {
-      margin: 0;
+      margin: 0 0 8px;
       color: #ddd;
+      font-size: 14px;
+    }
+
+    label {
+      font-size: 14px;
+    }
+
+    select {
+      margin-left: 6px;
+      padding: 4px 8px;
       font-size: 14px;
     }
 
     #viewer-container {
       position: relative;
       width: 100%;
-      height: calc(100% - 75px);
+      height: calc(100% - 105px);
     }
 
     #gl {
@@ -68,13 +78,23 @@
 </head>
 
 <body>
+
   <header>
-    <h1>Interactive Iguana MRI</h1>
+    <h1>Interactive BARBIE ISC Results</h1>
 
     <p>
-      Click or tap to reposition the crosshair. Scroll to move
-      through the image. MRI file sourced from Chris Rorden's repository at: https://github.com/neurolabusc/niivue-images.
+      Whole-brain inter-subject correlation results thresholded at
+      FDR q &lt; .05 and cluster extent k ≥ 60 voxels.
     </p>
+
+    <label for="modelSelect">
+      Model:
+      <select id="modelSelect">
+        <option value="Intercept">Intercept</option>
+        <option value="AnnaK">Mean Plasticity (AnnaK)</option>
+        <option value="NN">Plasticity Difference (NN)</option>
+      </select>
+    </label>
   </header>
 
   <div id="viewer-container">
@@ -83,36 +103,92 @@
   </div>
 
   <script type="module">
+
     import { Niivue }
       from "https://unpkg.com/@niivue/niivue@0.69.0/dist/index.js";
 
-    async function startViewer() {
-      const errorBox = document.getElementById("error");
+    const modelFiles = {
+      Intercept: "./Intercept_q05_k60.nii.gz",
+      AnnaK: "./AnnaK_q05_k60.nii.gz",
+      NN: "./NN_q05_k60.nii.gz"
+    };
+
+    const underlayFile =
+      "./MNI152_2009_template.nii.gz";
+
+    const errorBox =
+      document.getElementById("error");
+
+    const modelSelect =
+      document.getElementById("modelSelect");
+
+    const nv = new Niivue({
+      isResizeCanvas: true,
+      backColor: [0.05, 0.05, 0.05, 1],
+      isColorbar: true
+    });
+
+    async function loadModel(modelName) {
 
       try {
-        const nv = new Niivue({
-          isResizeCanvas: true,
-          backColor: [0.05, 0.05, 0.05, 1]
-        });
 
-        await nv.attachTo("gl");
+        errorBox.style.display = "none";
 
         await nv.loadVolumes([
           {
-            url: "./Iguana.nii.gz"
+            url: underlayFile,
+            colormap: "gray",
+            opacity: 1
+          },
+          {
+            url: modelFiles[modelName],
+            colormap: "red",
+            opacity: 0.85
           }
         ]);
+
       } catch (error) {
+
         console.error(error);
 
         errorBox.style.display = "block";
+
         errorBox.textContent =
           "Viewer error: " +
           (error?.message || String(error));
       }
     }
 
+    async function startViewer() {
+
+      try {
+
+        await nv.attachTo("gl");
+
+        await loadModel("Intercept");
+
+      } catch (error) {
+
+        console.error(error);
+
+        errorBox.style.display = "block";
+
+        errorBox.textContent =
+          "Viewer error: " +
+          (error?.message || String(error));
+      }
+    }
+
+    modelSelect.addEventListener(
+      "change",
+      async function () {
+        await loadModel(this.value);
+      }
+    );
+
     startViewer();
+
   </script>
+
 </body>
 </html>
