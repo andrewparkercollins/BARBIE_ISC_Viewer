@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
+
   <meta charset="UTF-8">
 
   <meta
@@ -8,9 +10,10 @@
     content="width=device-width, initial-scale=1.0"
   >
 
-  <title>Interactive BARBIE ISC Results</title>
+  <title>Interactive Phonetic Plasticity ISC Results</title>
 
   <style>
+
     html,
     body {
       width: 100%;
@@ -74,12 +77,16 @@
       border-radius: 5px;
       display: none;
     }
+
   </style>
+
 </head>
+
 
 <body>
 
   <header>
+
     <h1>Interactive BARBIE ISC Results</h1>
 
     <p>
@@ -88,18 +95,36 @@
     </p>
 
     <label for="modelSelect">
+
       Model:
+
       <select id="modelSelect">
-        <option value="Intercept">Intercept</option>
-        <option value="NN">Plasticity Difference (NN)</option>
-        <option value="AnnaK">Mean Plasticity (AnnaK)</option>
+
+        <option value="Intercept">
+          Intercept
+        </option>
+
+        <option value="NN">
+          Plasticity Difference (NN)
+        </option>
+
+        <option value="AnnaK">
+          Mean Plasticity (AnnaK)
+        </option>
+
       </select>
+
     </label>
+
   </header>
 
+
   <div id="viewer-container">
+
     <canvas id="gl"></canvas>
+
     <div id="error"></div>
+
   </div>
 
 
@@ -109,23 +134,34 @@
       from "https://unpkg.com/@niivue/niivue@0.69.0/dist/index.js";
 
 
+    // =========================================================
+    // FILES
+    // =========================================================
+
     const underlayFile =
       "./MNI152_2009_template.nii.gz";
 
 
-    const modelFiles = {
+    const files = {
 
       Intercept:
         "./Intercept_q05_k60.nii.gz",
 
-      NN:
-        "./NN_q05_k60.nii.gz",
-
       AnnaK:
-        "./Annak_q05_k60.nii.gz"
+        "./Annak_q05_k60.nii.gz",
+
+      NNpositive:
+        "./NN_positive_q05_k60.nii.gz",
+
+      NNnegative:
+        "./NN_negative_q05_k60.nii.gz"
 
     };
 
+
+    // =========================================================
+    // ELEMENTS
+    // =========================================================
 
     const errorBox =
       document.getElementById("error");
@@ -133,6 +169,10 @@
     const modelSelect =
       document.getElementById("modelSelect");
 
+
+    // =========================================================
+    // NIIVUE
+    // =========================================================
 
     const nv = new Niivue({
 
@@ -150,81 +190,214 @@
     });
 
 
+    // =========================================================
+    // UTILITY:
+    // FIND POSITIVE NONZERO RANGE
+    // =========================================================
+
+    function setPositiveRange(volume) {
+
+      let minimum = Infinity;
+      let maximum = -Infinity;
+
+
+      for (
+        let i = 0;
+        i < volume.img.length;
+        i++
+      ) {
+
+        const value =
+          volume.img[i];
+
+
+        if (
+          !Number.isFinite(value) ||
+          value <= 0
+        ) {
+          continue;
+        }
+
+
+        if (value < minimum) {
+          minimum = value;
+        }
+
+
+        if (value > maximum) {
+          maximum = value;
+        }
+
+      }
+
+
+      if (
+        minimum !== Infinity &&
+        maximum !== -Infinity
+      ) {
+
+        volume.cal_min =
+          minimum;
+
+        volume.cal_max =
+          maximum;
+
+      }
+
+    }
+
+
+    // =========================================================
+    // LOAD MODEL
+    // =========================================================
+
     async function loadModel(modelName) {
 
       try {
 
-        errorBox.style.display = "none";
-
-
-        let overlaySettings;
+        errorBox.style.display =
+          "none";
 
 
         // =====================================================
         // NN ONLY
         //
-        // This is the ONLY model receiving special treatment.
+        // NN is deliberately split into two positive-valued
+        // images.
         //
-        // Positive NN values = cool colors
-        // Negative NN values = warm colors
+        // Original negative NN coefficients:
+        //     warm colors
         //
-        // Zero-valued background is explicitly ignored.
+        // Original positive NN coefficients:
+        //     cool colors
+        //
+        // This avoids NiiVue's signed-map zero-background issue.
         // =====================================================
 
         if (modelName === "NN") {
 
+
+          await nv.loadVolumes([
+
+            {
+
+              url:
+                underlayFile,
+
+              colormap:
+                "gray",
+
+              opacity:
+                1,
+
+              colorbarVisible:
+                false
+
+            },
+
+
+            {
+
+              url:
+                files.NNnegative,
+
+              // Original NEGATIVE NN values
+              // displayed as warm colors
+
+              colormap:
+                "warm",
+
+              opacity:
+                0.9,
+
+              colorbarVisible:
+                true,
+
+              alphaThreshold:
+                true,
+
+              ignoreZeroVoxels:
+                true
+
+            },
+
+
+            {
+
+              url:
+                files.NNpositive,
+
+              // Original POSITIVE NN values
+              // displayed as cool colors
+
+              colormap:
+                "winter",
+
+              opacity:
+                0.9,
+
+              colorbarVisible:
+                true,
+
+              alphaThreshold:
+                true,
+
+              ignoreZeroVoxels:
+                true
+
+            }
+
+          ]);
+
+
+          // Volume 1 = original negative NN values
+          // Volume 2 = original positive NN values
+
+          setPositiveRange(
+            nv.volumes[1]
+          );
+
+          setPositiveRange(
+            nv.volumes[2]
+          );
+
+
+          nv.volumes[0].colorbarVisible =
+            false;
+
+
+          nv.updateGLVolume();
+
+
+          return;
+
+        }
+
+
+        // =====================================================
+        // INTERCEPT + ANNAK
+        //
+        // Restore the exact approach that was already working.
+        // =====================================================
+
+        let overlaySettings;
+
+
+        if (modelName === "Intercept") {
+
           overlaySettings = {
 
             url:
-              modelFiles.NN,
+              files.Intercept,
 
-            // positive values = cool
             colormap:
+              "warm",
+
+            colormapNegative:
               "winter",
 
-            // negative values = warm
-            colormapNegative:
-              "warm",
-
-            opacity:
-              0.9,
-
-            colorbarVisible:
-              true,
-
-            // NN ONLY:
-            // prevent zero background from affecting scaling
-            ignoreZeroVoxels:
-              true,
-
-            // NN ONLY:
-            // make values outside the calibrated ranges transparent
-            alphaThreshold:
-              true,
-
-            trustCalMinMax:
-              true
-
-          };
-
-        }
-
-
-        // =====================================================
-        // INTERCEPT
-        //
-        // Leave styling alone.
-        // =====================================================
-
-        else if (modelName === "Intercept") {
-
-          overlaySettings = {
-
-            url:
-              modelFiles.Intercept,
-
-            colormap:
-              "warm",
+            useNegativeCmap:
+              false,
 
             opacity:
               0.9,
@@ -236,25 +409,24 @@
 
         }
 
-
-        // =====================================================
-        // ANNAK
-        //
-        // Leave styling alone.
-        // =====================================================
 
         else {
 
+          // ANNAK
+
           overlaySettings = {
 
             url:
-              modelFiles.AnnaK,
+              files.AnnaK,
 
             colormap:
               "warm",
 
             colormapNegative:
               "winter",
+
+            useNegativeCmap:
+              true,
 
             opacity:
               0.9,
@@ -266,14 +438,11 @@
 
         }
 
-
-        // =====================================================
-        // LOAD MNI + SELECTED MODEL
-        // =====================================================
 
         await nv.loadVolumes([
 
           {
+
             url:
               underlayFile,
 
@@ -285,23 +454,22 @@
 
             colorbarVisible:
               false
+
           },
+
 
           overlaySettings
 
         ]);
 
 
+        // =====================================================
+        // ORIGINAL WORKING SIGNED-MAP RANGE CODE
+        // =====================================================
+
         const overlay =
           nv.volumes[1];
 
-
-        // =====================================================
-        // DETERMINE NON-ZERO STATISTICAL RANGE
-        //
-        // Same working behavior used previously for Intercept
-        // and AnnaK.
-        // =====================================================
 
         let smallestPositive =
           Infinity;
@@ -327,11 +495,6 @@
 
 
           if (!Number.isFinite(value)) {
-            continue;
-          }
-
-
-          if (value === 0) {
             continue;
           }
 
@@ -386,10 +549,6 @@
         }
 
 
-        // =====================================================
-        // POSITIVE RANGE
-        // =====================================================
-
         if (
           smallestPositive !== Infinity
         ) {
@@ -402,15 +561,6 @@
 
         }
 
-
-        // =====================================================
-        // NEGATIVE RANGE
-        //
-        // NiiVue expects:
-        //
-        // cal_minNeg = most negative value
-        // cal_maxNeg = negative value closest to zero
-        // =====================================================
 
         if (
           mostNegative !== Infinity
@@ -425,71 +575,15 @@
         }
 
 
-        // =====================================================
-        // INTERCEPT
-        //
-        // Ensure no negative scale is used.
-        // =====================================================
-
         if (
           modelName === "Intercept"
         ) {
 
-          overlay.colormapNegative =
-            "";
+          overlay.useNegativeCmap =
+            false;
 
         }
 
-
-        // =====================================================
-        // NN ONLY:
-        //
-        // Reinforce the flipped color maps AFTER loading.
-        // This does not affect AnnaK or Intercept.
-        // =====================================================
-
-        if (
-          modelName === "NN"
-        ) {
-
-          nv.setColormap(
-            overlay.id,
-            "winter"
-          );
-
-          nv.setColormapNegative(
-            overlay.id,
-            "warm"
-          );
-
-        }
-
-
-        // =====================================================
-        // ANNAK ONLY:
-        //
-        // Preserve the working warm-positive /
-        // cool-negative appearance.
-        // =====================================================
-
-        if (
-          modelName === "AnnaK"
-        ) {
-
-          nv.setColormap(
-            overlay.id,
-            "warm"
-          );
-
-          nv.setColormapNegative(
-            overlay.id,
-            "winter"
-          );
-
-        }
-
-
-        // Hide MNI color bar
 
         nv.volumes[0].colorbarVisible =
           false;
@@ -504,8 +598,10 @@
 
         console.error(error);
 
+
         errorBox.style.display =
           "block";
+
 
         errorBox.textContent =
           "Viewer error: " +
@@ -519,11 +615,16 @@
     }
 
 
+    // =========================================================
+    // START
+    // =========================================================
+
     async function startViewer() {
 
       try {
 
         await nv.attachTo("gl");
+
 
         await loadModel(
           "Intercept"
@@ -536,8 +637,10 @@
 
         console.error(error);
 
+
         errorBox.style.display =
           "block";
+
 
         errorBox.textContent =
           "Viewer error: " +
@@ -550,6 +653,10 @@
 
     }
 
+
+    // =========================================================
+    // DROPDOWN
+    // =========================================================
 
     modelSelect.addEventListener(
 
@@ -571,4 +678,5 @@
   </script>
 
 </body>
+
 </html>
