@@ -91,8 +91,8 @@
       Model:
       <select id="modelSelect">
         <option value="Intercept">Intercept</option>
-        <option value="AnnaK">Mean Plasticity (AnnaK)</option>
         <option value="NN">Plasticity Difference (NN)</option>
+        <option value="AnnaK">Mean Plasticity (AnnaK)</option>
       </select>
     </label>
   </header>
@@ -109,8 +109,8 @@
 
     const modelFiles = {
       Intercept: "./Intercept_q05_k60.nii.gz",
-      AnnaK: "./AnnaK_q05_k60.nii.gz",
-      NN: "./NN_q05_k60.nii.gz"
+      NN: "./NN_q05_k60.nii.gz",
+      AnnaK: "./AnnaK_q05_k60.nii.gz"
     };
 
     const underlayFile =
@@ -138,14 +138,34 @@
           {
             url: underlayFile,
             colormap: "gray",
-            opacity: 1
+            opacity: 1,
+            colorbarVisible: false
           },
           {
             url: modelFiles[modelName],
-            colormap: "red",
-            opacity: 0.85
+
+            // Positive effects
+            colormap: "warm",
+
+            // Negative effects
+            colormapNegative: "winter",
+
+            opacity: 0.9,
+
+            // Critical: zero-valued voxels in the thresholded map
+            // should be transparent instead of filling the image.
+            ignoreZeroVoxels: true,
+
+            colorbarVisible: true
           }
         ]);
+
+        // Also explicitly hide the anatomical colorbar.
+        if (nv.volumes.length > 0) {
+          nv.volumes[0].colorbarVisible = false;
+        }
+
+        nv.updateGLVolume();
 
       } catch (error) {
 
