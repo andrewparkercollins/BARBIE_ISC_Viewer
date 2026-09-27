@@ -1,8 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-
   <meta charset="UTF-8">
 
   <meta
@@ -10,10 +8,9 @@
     content="width=device-width, initial-scale=1.0"
   >
 
-  <title>Interactive Phonetic Plasticity ISC Results</title>
+  <title>Interactive BARBIE ISC Results</title>
 
   <style>
-
     html,
     body {
       width: 100%;
@@ -77,16 +74,12 @@
       border-radius: 5px;
       display: none;
     }
-
   </style>
-
 </head>
-
 
 <body>
 
   <header>
-
     <h1>Interactive BARBIE ISC Results</h1>
 
     <p>
@@ -95,73 +88,33 @@
     </p>
 
     <label for="modelSelect">
-
       Model:
-
       <select id="modelSelect">
-
-        <option value="Intercept">
-          Intercept
-        </option>
-
-        <option value="NN">
-          Plasticity Difference (NN)
-        </option>
-
-        <option value="AnnaK">
-          Mean Plasticity (AnnaK)
-        </option>
-
+        <option value="Intercept">Intercept</option>
+        <option value="NN">Plasticity Difference (NN)</option>
+        <option value="AnnaK">Mean Plasticity (AnnaK)</option>
       </select>
-
     </label>
-
   </header>
 
-
   <div id="viewer-container">
-
     <canvas id="gl"></canvas>
-
     <div id="error"></div>
-
   </div>
-
 
   <script type="module">
 
     import { Niivue }
       from "https://unpkg.com/@niivue/niivue@0.69.0/dist/index.js";
 
-
-    // =========================================================
-    // FILES
-    // =========================================================
-
     const underlayFile =
       "./MNI152_2009_template.nii.gz";
 
-
     const files = {
-
-      Intercept:
-        "./Intercept_q05_k60.nii.gz",
-
-      AnnaK:
-        "./AnnaK_q05_k60.nii.gz",
-
-      NNpositive:
-        "./NN_positive_q05_k60.nii.gz",
-
-      NNnegative:
-        "./NN_negative_q05_k60.nii.gz"
-
+      Intercept: "./Intercept_q05_k60.nii.gz",
+      AnnaK: "./AnnaK_q05_k60.nii.gz",
+      NN: "./NN_q05_k60.nii.gz"
     };
-
-
-    // =========================================================
-    // ELEMENTS
-    // =========================================================
 
     const errorBox =
       document.getElementById("error");
@@ -169,514 +122,225 @@
     const modelSelect =
       document.getElementById("modelSelect");
 
-
-    // =========================================================
-    // NIIVUE
-    // =========================================================
-
     const nv = new Niivue({
-
       isResizeCanvas: true,
-
-      backColor: [
-        0.05,
-        0.05,
-        0.05,
-        1
-      ],
-
+      backColor: [0.05, 0.05, 0.05, 1],
       isColorbar: true
-
     });
 
-
-    // =========================================================
-    // UTILITY:
-    // FIND POSITIVE NONZERO RANGE
-    // =========================================================
-
-    function setPositiveRange(volume) {
-
-      let minimum = Infinity;
-      let maximum = -Infinity;
-
-
-      for (
-        let i = 0;
-        i < volume.img.length;
-        i++
-      ) {
-
-        const value =
-          volume.img[i];
-
-
-        if (
-          !Number.isFinite(value) ||
-          value <= 0
-        ) {
-          continue;
-        }
-
-
-        if (value < minimum) {
-          minimum = value;
-        }
-
-
-        if (value > maximum) {
-          maximum = value;
-        }
-
-      }
-
-
-      if (
-        minimum !== Infinity &&
-        maximum !== -Infinity
-      ) {
-
-        volume.cal_min =
-          minimum;
-
-        volume.cal_max =
-          maximum;
-
-      }
-
-    }
-
-
-    // =========================================================
-    // LOAD MODEL
-    // =========================================================
 
     async function loadModel(modelName) {
 
       try {
 
-        errorBox.style.display =
-          "none";
+        errorBox.style.display = "none";
 
 
         // =====================================================
         // NN ONLY
         //
-        // NN is deliberately split into two positive-valued
-        // images.
+        // Use the original signed NN file.
+        // All surviving values are negative:
+        //   -0.0309572 to -0.00820608
         //
-        // Original negative NN coefficients:
-        //     warm colors
-        //
-        // Original positive NN coefficients:
-        //     cool colors
-        //
-        // This avoids NiiVue's signed-map zero-background issue.
+        // We give the negative values the warm color scale.
+        // We set a dummy positive range > 1 so zero background
+        // is not colored on the positive side.
         // =====================================================
 
         if (modelName === "NN") {
 
-
           await nv.loadVolumes([
 
             {
-
-              url:
-                underlayFile,
-
-              colormap:
-                "gray",
-
-              opacity:
-                1,
-
-              colorbarVisible:
-                false
-
+              url: underlayFile,
+              colormap: "gray",
+              opacity: 1,
+              colorbarVisible: false
             },
 
-
             {
+              url: files.NN,
 
-              url:
-                files.NNnegative,
+              // Positive side (there are no surviving positives)
+              colormap: "winter",
 
-              // Original NEGATIVE NN values
-              // displayed as warm colors
+              // Negative side (the actual surviving NN signal)
+              colormapNegative: "warm",
 
-              colormap:
-                "warm",
+              useNegativeCmap: true,
 
-              opacity:
-                0.9,
+              opacity: 0.9,
+              colorbarVisible: true,
 
-              colorbarVisible:
-                true,
+              ignoreZeroVoxels: true,
+              alphaThreshold: true,
+              trustCalMinMax: true,
 
-              alphaThreshold:
-                true,
+              // Dummy positive range so zeros do not get mapped
+              cal_min: 1,
+              cal_max: 2,
 
-              ignoreZeroVoxels:
-                true
-
-            },
-
-
-            {
-
-              url:
-                files.NNpositive,
-
-              // Original POSITIVE NN values
-              // displayed as cool colors
-
-              colormap:
-                "winter",
-
-              opacity:
-                0.9,
-
-              colorbarVisible:
-                true,
-
-              alphaThreshold:
-                true,
-
-              ignoreZeroVoxels:
-                true
-
+              // Real negative range from 3dBrickStat
+              cal_minNeg: -0.0309572,
+              cal_maxNeg: -0.00820608
             }
 
           ]);
 
+          const overlay = nv.volumes[1];
 
-          // Volume 1 = original negative NN values
-          // Volume 2 = original positive NN values
+          // Reassert calibration after load
+          overlay.cal_min = 1;
+          overlay.cal_max = 2;
 
-          setPositiveRange(
-            nv.volumes[1]
-          );
+          overlay.cal_minNeg = -0.0309572;
+          overlay.cal_maxNeg = -0.00820608;
 
-          setPositiveRange(
-            nv.volumes[2]
-          );
+          overlay.useNegativeCmap = true;
 
-
-          nv.volumes[0].colorbarVisible =
-            false;
-
+          nv.volumes[0].colorbarVisible = false;
 
           nv.updateGLVolume();
 
-
           return;
-
         }
 
 
         // =====================================================
         // INTERCEPT + ANNAK
         //
-        // Restore the exact approach that was already working.
+        // Keep the previously working logic unchanged.
         // =====================================================
 
         let overlaySettings;
 
-
         if (modelName === "Intercept") {
 
           overlaySettings = {
-
-            url:
-              files.Intercept,
-
-            colormap:
-              "warm",
-
-            colormapNegative:
-              "winter",
-
-            useNegativeCmap:
-              false,
-
-            opacity:
-              0.9,
-
-            colorbarVisible:
-              true
-
+            url: files.Intercept,
+            colormap: "warm",
+            colormapNegative: "winter",
+            useNegativeCmap: false,
+            opacity: 0.9,
+            colorbarVisible: true
           };
 
-        }
-
-
-        else {
-
-          // ANNAK
+        } else {
 
           overlaySettings = {
-
-            url:
-              files.AnnaK,
-
-            colormap:
-              "warm",
-
-            colormapNegative:
-              "winter",
-
-            useNegativeCmap:
-              true,
-
-            opacity:
-              0.9,
-
-            colorbarVisible:
-              true
-
+            url: files.AnnaK,
+            colormap: "warm",
+            colormapNegative: "winter",
+            useNegativeCmap: true,
+            opacity: 0.9,
+            colorbarVisible: true
           };
 
         }
-
 
         await nv.loadVolumes([
 
           {
-
-            url:
-              underlayFile,
-
-            colormap:
-              "gray",
-
-            opacity:
-              1,
-
-            colorbarVisible:
-              false
-
+            url: underlayFile,
+            colormap: "gray",
+            opacity: 1,
+            colorbarVisible: false
           },
-
 
           overlaySettings
 
         ]);
 
+        const overlay = nv.volumes[1];
 
-        // =====================================================
-        // ORIGINAL WORKING SIGNED-MAP RANGE CODE
-        // =====================================================
+        let smallestPositive = Infinity;
+        let largestPositive = -Infinity;
 
-        const overlay =
-          nv.volumes[1];
+        let mostNegative = Infinity;
+        let leastNegative = -Infinity;
 
+        for (let i = 0; i < overlay.img.length; i++) {
 
-        let smallestPositive =
-          Infinity;
-
-        let largestPositive =
-          -Infinity;
-
-        let mostNegative =
-          Infinity;
-
-        let leastNegative =
-          -Infinity;
-
-
-        for (
-          let i = 0;
-          i < overlay.img.length;
-          i++
-        ) {
-
-          const value =
-            overlay.img[i];
-
+          const value = overlay.img[i];
 
           if (!Number.isFinite(value)) {
             continue;
           }
 
-
           if (value > 0) {
-
-            if (
-              value < smallestPositive
-            ) {
-
-              smallestPositive =
-                value;
-
+            if (value < smallestPositive) {
+              smallestPositive = value;
             }
-
-
-            if (
-              value > largestPositive
-            ) {
-
-              largestPositive =
-                value;
-
+            if (value > largestPositive) {
+              largestPositive = value;
             }
-
           }
-
 
           if (value < 0) {
-
-            if (
-              value < mostNegative
-            ) {
-
-              mostNegative =
-                value;
-
+            if (value < mostNegative) {
+              mostNegative = value;
             }
-
-
-            if (
-              value > leastNegative
-            ) {
-
-              leastNegative =
-                value;
-
+            if (value > leastNegative) {
+              leastNegative = value;
             }
-
           }
-
         }
 
-
-        if (
-          smallestPositive !== Infinity
-        ) {
-
-          overlay.cal_min =
-            smallestPositive;
-
-          overlay.cal_max =
-            largestPositive;
-
+        if (smallestPositive !== Infinity) {
+          overlay.cal_min = smallestPositive;
+          overlay.cal_max = largestPositive;
         }
 
-
-        if (
-          mostNegative !== Infinity
-        ) {
-
-          overlay.cal_minNeg =
-            mostNegative;
-
-          overlay.cal_maxNeg =
-            leastNegative;
-
+        if (mostNegative !== Infinity) {
+          overlay.cal_minNeg = mostNegative;
+          overlay.cal_maxNeg = leastNegative;
         }
 
-
-        if (
-          modelName === "Intercept"
-        ) {
-
-          overlay.useNegativeCmap =
-            false;
-
+        if (modelName === "Intercept") {
+          overlay.useNegativeCmap = false;
         }
 
-
-        nv.volumes[0].colorbarVisible =
-          false;
-
+        nv.volumes[0].colorbarVisible = false;
 
         nv.updateGLVolume();
 
-      }
-
-
-      catch (error) {
+      } catch (error) {
 
         console.error(error);
 
-
-        errorBox.style.display =
-          "block";
-
-
+        errorBox.style.display = "block";
         errorBox.textContent =
           "Viewer error: " +
-          (
-            error?.message ||
-            String(error)
-          );
-
+          (error?.message || String(error));
       }
-
     }
 
-
-    // =========================================================
-    // START
-    // =========================================================
 
     async function startViewer() {
 
       try {
-
         await nv.attachTo("gl");
-
-
-        await loadModel(
-          "Intercept"
-        );
-
-      }
-
-
-      catch (error) {
-
+        await loadModel("Intercept");
+      } catch (error) {
         console.error(error);
-
-
-        errorBox.style.display =
-          "block";
-
-
+        errorBox.style.display = "block";
         errorBox.textContent =
           "Viewer error: " +
-          (
-            error?.message ||
-            String(error)
-          );
-
+          (error?.message || String(error));
       }
-
     }
 
-
-    // =========================================================
-    // DROPDOWN
-    // =========================================================
-
     modelSelect.addEventListener(
-
       "change",
-
       async function () {
-
-        await loadModel(
-          this.value
-        );
-
+        await loadModel(this.value);
       }
-
     );
-
 
     startViewer();
 
   </script>
 
 </body>
-
 </html>
