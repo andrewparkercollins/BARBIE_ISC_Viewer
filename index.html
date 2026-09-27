@@ -84,12 +84,11 @@
 
     <p>
       Whole-brain inter-subject correlation results thresholded at
-      FDR q &lt; .05 and cluster extent k ≥ 60 voxels.
+      FDR q &lt; .05.
     </p>
 
     <label for="modelSelect">
       Model:
-
       <select id="modelSelect">
         <option value="Intercept">Intercept</option>
         <option value="NN">Plasticity Difference (NN)</option>
@@ -103,42 +102,29 @@
     <div id="error"></div>
   </div>
 
-
   <script type="module">
 
     import { Niivue }
       from "https://unpkg.com/@niivue/niivue@0.69.0/dist/index.js";
 
 
-    // =========================================================
-    // FILES
-    // =========================================================
-
     const underlayFile =
       "./MNI152_2009_template.nii.gz";
 
+
     const files = {
-      Intercept: "./Intercept_q05_k60.nii.gz",
+      Intercept: "./Intercept_q05.nii.gz",
       NN: "./NN_q05_k60.nii.gz",
       AnnaK: "./AnnaK_q05_k60.nii.gz"
     };
 
-
-    // =========================================================
-    // DETERMINE SELECTED MODEL FROM URL
-    //
-    // Example:
-    // index.html?model=NN
-    //
-    // Every model switch reloads the page, so NiiVue starts
-    // completely fresh and cannot carry state between models.
-    // =========================================================
 
     const params =
       new URLSearchParams(window.location.search);
 
     let selectedModel =
       params.get("model") || "Intercept";
+
 
     if (
       selectedModel !== "Intercept" &&
@@ -155,35 +141,22 @@
     const errorBox =
       document.getElementById("error");
 
+
     modelSelect.value =
       selectedModel;
 
-
-    // =========================================================
-    // MODEL SWITCH
-    //
-    // Reload the entire page instead of reusing the NiiVue
-    // instance.
-    // =========================================================
 
     modelSelect.addEventListener(
       "change",
       function () {
 
-        const model =
-          this.value;
-
         window.location.search =
           "?model=" +
-          encodeURIComponent(model);
+          encodeURIComponent(this.value);
 
       }
     );
 
-
-    // =========================================================
-    // CREATE A BRAND-NEW NIIVUE INSTANCE
-    // =========================================================
 
     const nv = new Niivue({
 
@@ -200,10 +173,6 @@
 
     });
 
-
-    // =========================================================
-    // INTERCEPT / ANNAK RANGE UTILITY
-    // =========================================================
 
     function applySignedRange(overlay) {
 
@@ -244,7 +213,6 @@
               value;
           }
 
-
           if (
             value > largestPositive
           ) {
@@ -263,7 +231,6 @@
             mostNegative =
               value;
           }
-
 
           if (
             value > leastNegative
@@ -305,10 +272,6 @@
     }
 
 
-    // =========================================================
-    // LOAD SELECTED MODEL
-    // =========================================================
-
     async function startViewer() {
 
       try {
@@ -318,13 +281,6 @@
 
         // =====================================================
         // NN
-        //
-        // Original NN_q05_k60 file.
-        //
-        // All surviving NN values are negative:
-        // -0.0309572 to -0.00820608
-        //
-        // Negative effects are displayed with the warm scale.
         // =====================================================
 
         if (selectedModel === "NN") {
@@ -357,12 +313,9 @@
 
               trustCalMinMax: true,
 
-              // Dummy positive range.
-              // No significant positive NN values exist.
               cal_min: 1,
               cal_max: 2,
 
-              // Actual surviving NN range.
               cal_minNeg: -0.0309572,
               cal_maxNeg: -0.00820608
             }
@@ -372,6 +325,7 @@
 
           const overlay =
             nv.volumes[1];
+
 
           overlay.cal_min =
             1;
@@ -400,6 +354,7 @@
 
         // =====================================================
         // INTERCEPT
+        // q < .05, no k = 60 cluster restriction
         // =====================================================
 
         if (selectedModel === "Intercept") {
@@ -426,9 +381,11 @@
           const overlay =
             nv.volumes[1];
 
+
           applySignedRange(
             overlay
           );
+
 
           overlay.useNegativeCmap =
             false;
@@ -436,6 +393,7 @@
 
           nv.volumes[0].colorbarVisible =
             false;
+
 
           nv.updateGLVolume();
 
@@ -445,6 +403,7 @@
 
         // =====================================================
         // ANNAK
+        // q < .05 + k >= 60
         // =====================================================
 
         if (selectedModel === "AnnaK") {
@@ -478,6 +437,7 @@
           const overlay =
             nv.volumes[1];
 
+
           applySignedRange(
             overlay
           );
@@ -485,6 +445,7 @@
 
           nv.volumes[0].colorbarVisible =
             false;
+
 
           nv.updateGLVolume();
 
